@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { providers } from '@/db/schema';
-import { eq, like, and, or, desc, asc, sql } from 'drizzle-orm';
+import { eq, like, and, desc, asc, sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -40,26 +40,20 @@ export async function GET(request: NextRequest) {
     const sortBy = searchParams.get('sort') ?? 'createdAt';
     const order = searchParams.get('order') ?? 'desc';
 
-    let query = db.select().from(providers);
-
-    // Build where conditions
+    // Build conditions array
     const conditions = [];
 
-    // Search filter
     if (search) {
       conditions.push(like(providers.name, `%${search}%`));
     }
 
-    // isActive filter
     if (isActiveParam !== null) {
-      const isActiveValue = isActiveParam === 'true' ? 1 : 0;
+      const isActiveValue = isActiveParam === 'true';
       conditions.push(eq(providers.isActive, isActiveValue));
     }
 
-    // Apply where conditions
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
+    // Build the final condition
+    const finalCondition = conditions.length > 0 ? and(...conditions) : undefined;
 
     // Apply sorting
     const sortColumn = sortBy === 'gameCount' ? providers.gameCount 
@@ -67,10 +61,14 @@ export async function GET(request: NextRequest) {
                      : providers.createdAt;
     
     const orderDirection = order === 'asc' ? asc(sortColumn) : desc(sortColumn);
-    query = query.orderBy(orderDirection);
 
-    // Apply pagination
-    const results = await query.limit(limit).offset(offset);
+    // Execute query with all conditions at once
+    const results = await db.select()
+      .from(providers)
+      .where(finalCondition)
+      .orderBy(orderDirection)
+      .limit(limit)
+      .offset(offset);
 
     return NextResponse.json(results, { status: 200 });
   } catch (error) {
@@ -152,7 +150,7 @@ export async function POST(request: NextRequest) {
       name: name.trim(),
       slug: slug.trim(),
       logoUrl: logoUrl ? logoUrl.trim() : null,
-      isActive: isActive !== undefined ? (isActive ? 1 : 0) : 1,
+      isActive: isActive !== undefined ? isActive : true,
       gameCount: gameCount !== undefined ? gameCount : 0,
       createdAt: new Date().toISOString()
     };
@@ -264,7 +262,7 @@ export async function PUT(request: NextRequest) {
     if (name !== undefined) updateData.name = name.trim();
     if (slug !== undefined) updateData.slug = slug.trim();
     if (logoUrl !== undefined) updateData.logoUrl = logoUrl ? logoUrl.trim() : null;
-    if (isActive !== undefined) updateData.isActive = isActive ? 1 : 0;
+    if (isActive !== undefined) updateData.isActive = isActive;
     if (gameCount !== undefined) updateData.gameCount = gameCount;
 
     // Update provider

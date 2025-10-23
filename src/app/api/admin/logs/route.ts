@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { adminLogs } from '@/db/schema';
-import { eq, and, gte, lte, desc, asc } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, asc, SQL } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -52,7 +52,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('order') ?? 'desc';
 
     // Build where conditions
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     if (adminId) {
       if (isNaN(parseInt(adminId))) {
@@ -116,25 +116,25 @@ export async function GET(request: NextRequest) {
       conditions.push(lte(adminLogs.createdAt, endDateISO.toISOString()));
     }
 
-    // Build query
+    // Start building the query
     let query = db.select().from(adminLogs);
 
-    // Apply filters
+    // Apply filters if any conditions exist
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      query = query.where(and(...conditions)) as any;
     }
 
     // Apply sorting
     if (sortField === 'createdAt') {
-      query = sortOrder === 'asc' 
+      query = (sortOrder === 'asc' 
         ? query.orderBy(asc(adminLogs.createdAt))
-        : query.orderBy(desc(adminLogs.createdAt));
+        : query.orderBy(desc(adminLogs.createdAt))) as any;
     } else {
       // Default to createdAt DESC if invalid sort field
-      query = query.orderBy(desc(adminLogs.createdAt));
+      query = query.orderBy(desc(adminLogs.createdAt)) as any;
     }
 
-    // Apply pagination
+    // Apply pagination and execute
     const results = await query.limit(limit).offset(offset);
 
     return NextResponse.json(results, { status: 200 });

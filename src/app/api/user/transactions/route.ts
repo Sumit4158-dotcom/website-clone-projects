@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { transactions } from '@/db/schema';
-import { eq, and, desc, asc } from 'drizzle-orm';
+import { eq, and, desc, asc, SQL } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -29,7 +29,7 @@ export async function GET(request: NextRequest) {
     const sortOrder = searchParams.get('order') ?? 'desc';
 
     // Build query conditions
-    const conditions = [eq(transactions.userId, parseInt(userId))];
+    const conditions: SQL[] = [eq(transactions.userId, parseInt(userId))];
 
     // Add type filter if provided
     if (type) {
@@ -55,23 +55,23 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(transactions.status, status));
     }
 
-    // Build the query
-    let query = db.select().from(transactions).where(and(...conditions));
+    // Build the base query
+    let baseQuery = db.select().from(transactions).where(and(...conditions));
 
-    // Apply sorting
+    // Apply sorting based on conditions
     if (sortField === 'createdAt') {
-      query = sortOrder === 'asc' 
-        ? query.orderBy(asc(transactions.createdAt))
-        : query.orderBy(desc(transactions.createdAt));
+      if (sortOrder === 'asc') {
+        const results = await baseQuery.orderBy(asc(transactions.createdAt)).limit(limit).offset(offset);
+        return NextResponse.json(results, { status: 200 });
+      } else {
+        const results = await baseQuery.orderBy(desc(transactions.createdAt)).limit(limit).offset(offset);
+        return NextResponse.json(results, { status: 200 });
+      }
     } else {
-      // Default to createdAt DESC if invalid sort field
-      query = query.orderBy(desc(transactions.createdAt));
+      // Default sorting
+      const results = await baseQuery.orderBy(desc(transactions.createdAt)).limit(limit).offset(offset);
+      return NextResponse.json(results, { status: 200 });
     }
-
-    // Apply pagination
-    const results = await query.limit(limit).offset(offset);
-
-    return NextResponse.json(results, { status: 200 });
 
   } catch (error) {
     console.error('GET error:', error);

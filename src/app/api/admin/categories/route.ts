@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { categories } from '@/db/schema';
-import { eq, like, and, or, desc, asc } from 'drizzle-orm';
+import { eq, like, and, or, desc, asc, SQL } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -40,10 +40,8 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') ?? 'displayOrder';
     const order = searchParams.get('order') ?? 'asc';
 
-    let query = db.select().from(categories);
-
     // Build where conditions
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     // Search by name
     if (search) {
@@ -56,23 +54,34 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(categories.isActive, isActiveValue));
     }
 
-    // Apply where conditions
-    if (conditions.length > 0) {
-      query = query.where(conditions.length === 1 ? conditions[0] : and(...conditions));
-    }
-
     // Apply sorting
     const sortColumn = sort === 'name' ? categories.name : 
                        sort === 'displayOrder' ? categories.displayOrder : 
                        categories.displayOrder;
     
     const orderFn = order === 'desc' ? desc : asc;
-    query = query.orderBy(orderFn(sortColumn));
 
-    // Apply pagination
-    const results = await query.limit(limit).offset(offset);
+    // Build and execute query in one chain
+    let baseQuery = db.select().from(categories);
 
-    return NextResponse.json(results, { status: 200 });
+    if (conditions.length > 0) {
+      // Use a different approach - build the query with conditions directly
+      const results = await baseQuery
+        .where(conditions.length === 1 ? conditions[0] : and(...conditions))
+        .orderBy(orderFn(sortColumn))
+        .limit(limit)
+        .offset(offset);
+
+      return NextResponse.json(results, { status: 200 });
+    } else {
+      // Query without where conditions
+      const results = await baseQuery
+        .orderBy(orderFn(sortColumn))
+        .limit(limit)
+        .offset(offset);
+
+      return NextResponse.json(results, { status: 200 });
+    }
 
   } catch (error) {
     console.error('GET error:', error);

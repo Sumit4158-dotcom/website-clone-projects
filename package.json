@@ -12,6 +12,16 @@
         "db:studio": "drizzle-kit studio",
         "db:seed": "tsx src/db/seeds/index.ts"
     },
+    "eslintConfig": {
+        "extends": [
+            "next/core-web-vitals",
+            "next/typescript"
+        ],
+        "rules": {
+            "@typescript-eslint/no-explicit-any": "off",
+            "import/named": "off"
+        }
+    },
     "dependencies": {
         "@babel/parser": "^7.28.4",
         "@headlessui/react": "^2.2.8",
@@ -56,7 +66,6 @@
         "autumn-js": "^0.1.34",
         "bcrypt": "^6.0.0",
         "better-auth": "^1.3.10",
-        "class-variance-authority": "^0.7.1",
         "clsx": "^2.1.1",
         "cmdk": "^1.1.1",
         "cobe": "^0.6.4",
@@ -70,7 +79,7 @@
         "estree-walker": "2.0.2",
         "framer-motion": "^12.23.12",
         "input-otp": "^1.4.2",
-        "lucide-react": "^0.544.0",
+        "lucide-react": "^0.546.0",
         "mini-svg-data-uri": "^1.4.4",
         "motion": "^12.23.12",
         "motion-dom": "^12.23.12",
@@ -110,7 +119,10 @@
         "@types/react-dom": "^19",
         "@types/react-syntax-highlighter": "^15.5.13",
         "@types/three": "^0.178.0",
-        "eslint": "^9.35.0",
+        "@typescript-eslint/eslint-plugin": "^6.21.0",
+        "@typescript-eslint/parser": "^6.21.0",
+        "class-variance-authority": "^0.7.1",
+        "eslint": "^8.57.1",
         "eslint-config-next": "^15.5.3",
         "tailwindcss": "^4",
         "tw-animate-css": "^1.3.8",

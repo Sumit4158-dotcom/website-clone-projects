@@ -1,5 +1,10 @@
+/* eslint-disable @typescript-eslint/no-explicit-any */
+/* eslint-disable import/named */
+import { VariantProps } from "class-variance-authority";
+
 "use client";
 
+import { LucideIcon } from "lucide-react";
 import * as React from "react";
 import Image from "next/image";
 import Link from "next/link";
@@ -9,7 +14,7 @@ import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { History, Crown, Gift, Users, Link as LinkIcon, Star, Download, Phone, BookOpen, MessageSquare, ChevronsRight, ChevronsLeft, X } from "lucide-react";
+import { History, Crown, Gift, Users, Link as LinkIcon, Star, Download, Phone, BookOpen, MessageSquare, ChevronsRight, ChevronsLeft, X, Home, Settings, User } from "lucide-react";
 
 const sponsorLogos = [
   {
@@ -50,7 +55,34 @@ const otherNavItems = [
   { label: "BJ Forum", icon: MessageSquare, href: "/forum" },
 ];
 
-const NavLink = ({ item, isExpanded, isActive = false }) => {
+// Dashboard items from second code
+const dashboardItems = [
+  { name: "Home", href: "/", icon: Home },
+  { name: "Profile", href: "/profile", icon: User },
+  { name: "Settings", href: "/settings", icon: Settings }
+];
+
+// Type definitions
+interface NavItem {
+  label: string;
+  icon: string | LucideIcon;
+  href: string;
+  id?: string;
+}
+
+interface NavLinkProps {
+  item: NavItem;
+  isExpanded: boolean;
+  isActive?: boolean;
+}
+
+interface MainNavLinkProps {
+  item: NavItem;
+  isExpanded: boolean;
+  isActive?: boolean;
+}
+
+const NavLink = ({ item, isExpanded, isActive = false }: NavLinkProps) => {
   const Icon = item.icon;
   return (
     <TooltipProvider delayDuration={0}>
@@ -61,7 +93,11 @@ const NavLink = ({ item, isExpanded, isActive = false }) => {
             isExpanded ? "h-11 px-3" : "h-12 w-12 justify-center",
             isActive ? "text-sidebar-foreground bg-sidebar-accent/[.6]" : "text-sidebar-foreground/80"
           )}>
-            <Icon className="h-5 w-5" />
+            {typeof Icon === 'string' ? (
+              <Image src={Icon} alt={item.label} width={20} height={20} />
+            ) : (
+              <Icon className="h-5 w-5" />
+            )}
             <span className={cn("ml-4 whitespace-nowrap transition-opacity", isExpanded ? "opacity-100" : "opacity-0 absolute")}>{item.label}</span>
           </Link>
         </TooltipTrigger>
@@ -71,7 +107,7 @@ const NavLink = ({ item, isExpanded, isActive = false }) => {
   );
 };
 
-const MainNavLink = ({ item, isExpanded, isActive = false }) => {
+const MainNavLink = ({ item, isExpanded, isActive = false }: MainNavLinkProps) => {
   return (
     <TooltipProvider delayDuration={0}>
       <Tooltip>
@@ -86,7 +122,7 @@ const MainNavLink = ({ item, isExpanded, isActive = false }) => {
           >
             <div className={cn("flex items-center", isExpanded ? "" : "w-full justify-center")}>
               <div className={cn("h-8 w-8 rounded-full flex items-center justify-center bg-transparent", !isExpanded ? "mx-auto" : "")}>
-                <Image src={item.icon} alt={item.label} width={28} height={28} style={isActive ? { filter: 'brightness(0) saturate(100%) invert(84%) sepia(23%) saturate(3025%) hue-rotate(334deg) brightness(101%) contrast(98%)'} : {}} />
+                <Image src={item.icon as string} alt={item.label} width={28} height={28} style={isActive ? { filter: 'brightness(0) saturate(100%) invert(84%) sepia(23%) saturate(3025%) hue-rotate(334deg) brightness(101%) contrast(98%)'} : {}} />
               </div>
               <span className={cn("font-medium text-sm whitespace-nowrap transition-all duration-300", isExpanded ? "ml-3 opacity-100" : "opacity-0 w-0 -ml-3")}>
                 {item.label}
@@ -95,6 +131,30 @@ const MainNavLink = ({ item, isExpanded, isActive = false }) => {
           </Link>
         </TooltipTrigger>
         {!isExpanded && <TooltipContent side="right"><p>{item.label}</p></TooltipContent>}
+      </Tooltip>
+    </TooltipProvider>
+  );
+};
+
+const DashboardNavLink = ({ item, isExpanded, isActive = false }: { item: typeof dashboardItems[0], isExpanded: boolean, isActive?: boolean }) => {
+  return (
+    <TooltipProvider delayDuration={0}>
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Link 
+            href={item.href} 
+            className={cn(
+              "flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-700 transition text-sm font-medium",
+              isActive ? "bg-gray-700 text-white" : "text-gray-300"
+            )}
+          >
+            <item.icon className="w-5 h-5" />
+            <span className={cn("whitespace-nowrap transition-all duration-300", isExpanded ? "opacity-100" : "opacity-0 w-0")}>
+              {item.name}
+            </span>
+          </Link>
+        </TooltipTrigger>
+        {!isExpanded && <TooltipContent side="right"><p>{item.name}</p></TooltipContent>}
       </Tooltip>
     </TooltipProvider>
   );
@@ -173,9 +233,41 @@ export default function Sidebar() {
         </div>
 
         <nav className="flex-1 overflow-y-auto overflow-x-hidden py-2 space-y-1" style={{ scrollbarWidth: 'none' }}>
+          {/* Dashboard Section */}
+          <div className={cn("mb-4", isExpanded || isMobileOpen ? "px-4" : "px-2")}>
+            <h2 className={cn(
+              "text-xl font-semibold mb-4 text-sidebar-foreground transition-all duration-300",
+              isExpanded || isMobileOpen ? "opacity-100" : "opacity-0 h-0 mb-0 overflow-hidden"
+            )}>
+              Dashboard
+            </h2>
+            <ul className={cn("space-y-2", isExpanded || isMobileOpen ? "" : "flex flex-col items-center")}>
+              {dashboardItems.map((item) => {
+                const isActive = pathname === item.href;
+                return (
+                  <li key={item.name} className="w-full">
+                    <DashboardNavLink 
+                      item={item} 
+                      isExpanded={isExpanded || isMobileOpen}
+                      isActive={isActive}
+                    />
+                  </li>
+                );
+              })}
+            </ul>
+          </div>
+
           <div className={cn("flex flex-col items-center space-y-2", isExpanded || isMobileOpen ? "px-4" : "px-2")}>
-            <NavLink item={{ label: 'History', href: '#', icon: History }} isExpanded={isExpanded || isMobileOpen} />
-            <NavLink item={{ label: 'VIP', href: '#', icon: Crown }} isExpanded={isExpanded || isMobileOpen} />
+            <NavLink 
+              item={{ label: 'History', href: '#', icon: History }} 
+              isExpanded={isExpanded || isMobileOpen} 
+              isActive={false}
+            />
+            <NavLink 
+              item={{ label: 'VIP', href: '#', icon: Crown }} 
+              isExpanded={isExpanded || isMobileOpen} 
+              isActive={false}
+            />
           </div>
 
           <div className={cn("flex flex-col items-center space-y-1 mt-2", isExpanded || isMobileOpen ? "px-4" : "px-2")}>
@@ -194,7 +286,14 @@ export default function Sidebar() {
           
           <div className="pt-2 mt-2 border-t border-sidebar-border/50">
             <div className={cn("flex flex-col items-center space-y-1", isExpanded || isMobileOpen ? "px-4" : "px-2")}>
-              {otherNavItems.map(item => <NavLink key={item.label} item={item} isExpanded={isExpanded || isMobileOpen} />)}
+              {otherNavItems.map(item => (
+                <NavLink 
+                  key={item.label} 
+                  item={item} 
+                  isExpanded={isExpanded || isMobileOpen} 
+                  isActive={false}
+                />
+              ))}
             </div>
           </div>
         </nav>
@@ -206,5 +305,27 @@ export default function Sidebar() {
         </div>
       </aside>
     </>
+  );
+}
+
+// Alternative simple sidebar component (from your second code)
+export function SimpleSidebar() {
+  return (
+    <div className="w-64 bg-gray-900 text-white h-screen p-4">
+      <h2 className="text-xl font-semibold mb-6">Dashboard</h2>
+      <ul className="space-y-2">
+        {dashboardItems.map((item) => (
+          <li key={item.name}>
+            <a
+              href={item.href}
+              className="flex items-center space-x-2 p-2 rounded-lg hover:bg-gray-700 transition"
+            >
+              <item.icon className="w-5 h-5" />
+              <span>{item.name}</span>
+            </a>
+          </li>
+        ))}
+      </ul>
+    </div>
   );
 }

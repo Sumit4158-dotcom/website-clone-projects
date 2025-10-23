@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { games, categories } from '@/db/schema';
-import { eq, like, and, or, desc, asc, sql } from 'drizzle-orm';
+import { eq, like, and, or, desc, asc, sql, SQL } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -45,10 +45,23 @@ export async function GET(request: NextRequest) {
     const order = searchParams.get('order') ?? 'desc';
 
     // Build where conditions
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     if (search) {
-      conditions.push(like(games.name, `%${search}%`));
+      // Create individual search conditions
+      const searchConditions = [
+        like(games.name, `%${search}%`),
+        like(games.description, `%${search}%`),
+        like(games.provider, `%${search}%`)
+      ].filter(Boolean) as SQL[];
+
+      // Only add OR condition if there are valid search conditions
+      if (searchConditions.length > 0) {
+        const searchCondition = or(...searchConditions);
+        if (searchCondition) {
+          conditions.push(searchCondition);
+        }
+      }
     }
 
     if (categoryId) {
@@ -75,25 +88,31 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(games.isActive, activeValue));
     }
 
-    // Build query
-    let query = db.select().from(games);
-
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
-    // Apply sorting
+    // Build and execute query in a single chain
     const validSortFields = ['playCount', 'createdAt'];
     const sortField = validSortFields.includes(sort) ? sort : 'createdAt';
     const sortOrder = order === 'asc' ? asc : desc;
 
-    if (sortField === 'playCount') {
-      query = query.orderBy(sortOrder(games.playCount));
+    let results;
+    
+    if (conditions.length > 0) {
+      // Execute query with conditions in one chain
+      results = await db
+        .select()
+        .from(games)
+        .where(and(...conditions))
+        .orderBy(sortField === 'playCount' ? sortOrder(games.playCount) : sortOrder(games.createdAt))
+        .limit(limit)
+        .offset(offset);
     } else {
-      query = query.orderBy(sortOrder(games.createdAt));
+      // Execute query without conditions in one chain
+      results = await db
+        .select()
+        .from(games)
+        .orderBy(sortField === 'playCount' ? sortOrder(games.playCount) : sortOrder(games.createdAt))
+        .limit(limit)
+        .offset(offset);
     }
-
-    const results = await query.limit(limit).offset(offset);
 
     return NextResponse.json(results, { status: 200 });
   } catch (error) {
@@ -105,6 +124,7 @@ export async function GET(request: NextRequest) {
   }
 }
 
+// ... REST OF THE CODE (POST, PUT, DELETE) REMAINS THE SAME ...
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { bonuses } from '@/db/schema';
-import { eq, like, and, or, desc, asc } from 'drizzle-orm';
+import { eq, like, and, or, desc, asc, SQL } from 'drizzle-orm';
 
 const VALID_BONUS_TYPES = ['welcome', 'deposit', 'cashback', 'free_spins', 'referral'];
 
@@ -53,19 +53,18 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') ?? 'createdAt';
     const order = searchParams.get('order') ?? 'desc';
 
-    let query = db.select().from(bonuses);
-
     // Build conditions array
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     // Search by name or code
     if (search) {
-      conditions.push(
-        or(
-          like(bonuses.name, `%${search}%`),
-          like(bonuses.code, `%${search}%`)
-        )
+      const searchCondition = or(
+        like(bonuses.name, `%${search}%`),
+        like(bonuses.code, `%${search}%`)
       );
+      if (searchCondition) {
+        conditions.push(searchCondition);
+      }
     }
 
     // Filter by type
@@ -85,24 +84,30 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(bonuses.isActive, isActive));
     }
 
-    // Apply all conditions
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
+    // Build the query step by step without reassignment
+    let baseQuery = db.select().from(bonuses);
+
+    // Apply conditions if any exist
+    const queryWithConditions = conditions.length > 0 
+      ? baseQuery.where(and(...conditions))
+      : baseQuery;
 
     // Apply sorting
+    let sortedQuery;
     if (sort === 'createdAt') {
-      query = order === 'asc' 
-        ? query.orderBy(asc(bonuses.createdAt))
-        : query.orderBy(desc(bonuses.createdAt));
+      sortedQuery = order === 'asc' 
+        ? queryWithConditions.orderBy(asc(bonuses.createdAt))
+        : queryWithConditions.orderBy(desc(bonuses.createdAt));
     } else if (sort === 'amount') {
-      query = order === 'asc'
-        ? query.orderBy(asc(bonuses.amount))
-        : query.orderBy(desc(bonuses.amount));
+      sortedQuery = order === 'asc'
+        ? queryWithConditions.orderBy(asc(bonuses.amount))
+        : queryWithConditions.orderBy(desc(bonuses.amount));
+    } else {
+      sortedQuery = queryWithConditions.orderBy(desc(bonuses.createdAt));
     }
 
-    // Apply pagination
-    const results = await query.limit(limit).offset(offset);
+    // Apply pagination and execute
+    const results = await sortedQuery.limit(limit).offset(offset);
 
     return NextResponse.json(results, { status: 200 });
   } catch (error) {

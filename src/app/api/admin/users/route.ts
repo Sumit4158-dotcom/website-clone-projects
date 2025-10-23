@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { users } from '@/db/schema';
-import { eq, like, and, or, desc } from 'drizzle-orm';
+import { eq, like, and, or, desc, SQL } from 'drizzle-orm';
 
 // Helper function to omit passwordHash from user objects
 function sanitizeUser(user: any) {
@@ -45,10 +45,8 @@ export async function GET(request: NextRequest) {
     const status = searchParams.get('status');
     const kycVerified = searchParams.get('kycVerified');
 
-    let query = db.select().from(users);
-
-    // Build filter conditions
-    const conditions = [];
+    // Build conditions array
+    const conditions: SQL[] = [];
 
     // Search filter
     if (search) {
@@ -57,7 +55,7 @@ export async function GET(request: NextRequest) {
           like(users.email, `%${search}%`),
           like(users.username, `%${search}%`),
           like(users.fullName, `%${search}%`)
-        )
+        )!
       );
     }
 
@@ -71,16 +69,22 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(users.kycVerified, kycVerified === 'true'));
     }
 
-    // Apply conditions
+    // Execute query based on conditions
+    let results;
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      results = await db.select()
+        .from(users)
+        .where(and(...conditions))
+        .orderBy(desc(users.createdAt))
+        .limit(limit)
+        .offset(offset);
+    } else {
+      results = await db.select()
+        .from(users)
+        .orderBy(desc(users.createdAt))
+        .limit(limit)
+        .offset(offset);
     }
-
-    // Apply sorting, pagination
-    const results = await query
-      .orderBy(desc(users.createdAt))
-      .limit(limit)
-      .offset(offset);
 
     // Sanitize results
     const sanitizedResults = results.map(user => sanitizeUser(user));
@@ -247,9 +251,7 @@ export async function PUT(request: NextRequest) {
         .where(
           and(
             eq(users.email, email.toLowerCase().trim()),
-            or(
-              eq(users.id, parseInt(id))
-            )
+            eq(users.id, parseInt(id))
           )
         )
         .limit(2);
@@ -269,9 +271,7 @@ export async function PUT(request: NextRequest) {
         .where(
           and(
             eq(users.username, username.trim()),
-            or(
-              eq(users.id, parseInt(id))
-            )
+            eq(users.id, parseInt(id))
           )
         )
         .limit(2);

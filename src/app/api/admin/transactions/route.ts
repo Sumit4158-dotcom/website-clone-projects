@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { transactions, users } from '@/db/schema';
-import { eq, and, gte, lte, desc, asc, or } from 'drizzle-orm';
+import { eq, and, gte, lte, desc, asc, or, SQL } from 'drizzle-orm';
+import { sql } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -44,10 +45,8 @@ export async function GET(request: NextRequest) {
     const sortField = searchParams.get('sort') ?? 'createdAt';
     const order = searchParams.get('order') ?? 'desc';
 
-    let query = db.select().from(transactions);
-
     // Build filter conditions
-    const conditions = [];
+    const conditions: SQL[] = [];
 
     if (userId) {
       const userIdNum = parseInt(userId);
@@ -94,17 +93,17 @@ export async function GET(request: NextRequest) {
       conditions.push(lte(transactions.createdAt, endDate));
     }
 
-    // Apply filters
-    if (conditions.length > 0) {
-      query = query.where(and(...conditions));
-    }
-
     // Apply sorting
     const sortColumn = sortField === 'amount' ? transactions.amount : transactions.createdAt;
-    query = order === 'asc' ? query.orderBy(asc(sortColumn)) : query.orderBy(desc(sortColumn));
+    const orderByClause = order === 'asc' ? asc(sortColumn) : desc(sortColumn);
 
-    // Apply pagination
-    const results = await query.limit(limit).offset(offset);
+    // Execute query with all conditions at once
+    const results = await db.select()
+      .from(transactions)
+      .where(conditions.length > 0 ? and(...conditions) : undefined)
+      .orderBy(orderByClause)
+      .limit(limit)
+      .offset(offset);
 
     return NextResponse.json(results, { status: 200 });
   } catch (error) {
@@ -213,14 +212,14 @@ export async function POST(request: NextRequest) {
       }, { status: 400 });
     }
 
-    // Create transaction
+    // Create transaction - remove parseFloat since values are already numbers
     const newTransaction = await db.insert(transactions)
       .values({
         userId: parseInt(userId),
         type,
-        amount: parseFloat(amount),
-        balanceBefore: parseFloat(balanceBefore),
-        balanceAfter: parseFloat(balanceAfter),
+        amount: amount,
+        balanceBefore: balanceBefore,
+        balanceAfter: balanceAfter,
         status,
         paymentMethod: paymentMethod?.trim() || null,
         transactionRef: transactionRef?.trim() || null,

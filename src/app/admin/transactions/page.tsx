@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { Search, Filter, Download } from "lucide-react";
+import { Search, Filter, Download, Eye } from "lucide-react";
 
 interface Transaction {
   id: number;
@@ -148,7 +148,7 @@ export default function TransactionsPage() {
                 </tr>
               </thead>
               <tbody>
-                {filteredTransactions.slice(0, 50).map((tx) => (
+                {transactions.slice(0, 50).map((tx) => (
                   <tr key={tx.id} className="border-t border-border hover:bg-secondary/50">
                     <td className="p-4 text-sm font-mono">#{tx.id}</td>
                     <td className="p-4">

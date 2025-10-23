@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { db } from '@/db';
 import { games } from '@/db/schema';
-import { eq, like, and, desc, asc, or } from 'drizzle-orm';
+import { eq, like, and, desc, asc, or, SQL } from 'drizzle-orm';
 
 export async function GET(request: NextRequest) {
   try {
@@ -23,18 +23,21 @@ export async function GET(request: NextRequest) {
     const sort = searchParams.get('sort') ?? 'createdAt';
     const order = searchParams.get('order') ?? 'desc';
 
-    // Build conditions array
-    const conditions = [eq(games.isActive, true)];
+    // Build conditions array with proper typing
+    const conditions: SQL[] = [eq(games.isActive, true)];
 
     // Add search condition
     if (search) {
-      conditions.push(
-        or(
-          like(games.name, `%${search}%`),
-          like(games.description, `%${search}%`),
-          like(games.provider, `%${search}%`)
-        )
-      );
+      const searchConditions = [
+        like(games.name, `%${search}%`),
+        like(games.description, `%${search}%`),
+        like(games.provider, `%${search}%`)
+      ];
+      
+      const orCondition = or(...searchConditions);
+      if (orCondition) {
+        conditions.push(orCondition);
+      }
     }
 
     // Add filter conditions
@@ -51,8 +54,8 @@ export async function GET(request: NextRequest) {
       conditions.push(eq(games.isFeatured, featuredValue));
     }
 
-    // Build query with conditions
-    let query = db.select({
+    // Build the base query
+    const baseQuery = db.select({
       id: games.id,
       name: games.name,
       slug: games.slug,
@@ -69,27 +72,30 @@ export async function GET(request: NextRequest) {
       createdAt: games.createdAt,
     }).from(games);
 
-    // Apply all conditions
+    // Apply conditions if any exist
+    let finalQuery;
     if (conditions.length > 0) {
-      query = query.where(and(...conditions));
+      finalQuery = baseQuery.where(and(...conditions));
+    } else {
+      finalQuery = baseQuery;
     }
 
     // Apply sorting
     switch (sort) {
       case 'playCount':
-        query = query.orderBy(order === 'asc' ? asc(games.playCount) : desc(games.playCount));
+        finalQuery = finalQuery.orderBy(order === 'asc' ? asc(games.playCount) : desc(games.playCount));
         break;
       case 'name':
-        query = query.orderBy(order === 'asc' ? asc(games.name) : desc(games.name));
+        finalQuery = finalQuery.orderBy(order === 'asc' ? asc(games.name) : desc(games.name));
         break;
       case 'createdAt':
       default:
-        query = query.orderBy(order === 'asc' ? asc(games.createdAt) : desc(games.createdAt));
+        finalQuery = finalQuery.orderBy(order === 'asc' ? asc(games.createdAt) : desc(games.createdAt));
         break;
     }
 
-    // Apply pagination
-    const results = await query.limit(limit).offset(offset);
+    // Apply pagination and execute
+    const results = await finalQuery.limit(limit).offset(offset);
 
     return NextResponse.json(results, { status: 200 });
 
